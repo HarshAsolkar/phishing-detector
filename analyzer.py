@@ -1,8 +1,12 @@
-import requests
 import json
+import os
+from groq import Groq
+from dotenv import load_dotenv
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3.2:1b"
+load_dotenv()
+
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL = "llama-3.1-8b-instant"
 
 SYSTEM_PROMPT = """You are a cybersecurity analyst specializing in phishing detection.
 Analyze the email provided and return ONLY a valid JSON object — no explanation, no markdown, no extra text.
@@ -37,62 +41,32 @@ Scoring guide:
 """
 
 def analyze_email(email_text: str) -> dict:
-    """
-    Send email text to local Llama model via Ollama and return threat analysis.
-    """
-    prompt = f"Analyze this email for phishing indicators:\n\n{email_text}"
-
-    payload = {
-        "model": MODEL,
-        "prompt": prompt,
-        "system": SYSTEM_PROMPT,
-        "stream": False,
-        "options": {
-            "temperature": 0.1,
-            "top_p": 0.9
-        }
-    }
-
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=60)
-        response.raise_for_status()
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Analyze this email for phishing indicators:\n\n{email_text}"}
+            ],
+            temperature=0.1,
+            max_tokens=1000
+        )
 
-        raw_output = response.json().get("response", "")
+        raw_output = response.choices[0].message.content.strip()
 
-        # Strip markdown code fences if model adds them
-        clean = raw_output.strip()
-        if clean.startswith("```"):
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-        clean = clean.strip()
+        if raw_output.startswith("```"):
+            raw_output = raw_output.split("```")[1]
+            if raw_output.startswith("json"):
+                raw_output = raw_output[4:]
+        raw_output = raw_output.strip()
 
-        result = json.loads(clean)
+        result = json.loads(raw_output)
         return {"success": True, "data": result}
 
-    except requests.exceptions.ConnectionError:
-        return {
-            "success": False,
-            "error": "Cannot connect to Ollama. Make sure it is running: run 'ollama serve' in a terminal."
-        }
-    except requests.exceptions.Timeout:
-        return {
-            "success": False,
-            "error": "Ollama took too long to respond. Try a shorter email or restart Ollama."
-        }
     except json.JSONDecodeError:
         return {
             "success": False,
-            "error": "Model returned invalid JSON. Try again — this is rare with Llama 3.1."
+            "error": "Model returned invalid JSON. Please try again."
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-
-def get_score_color(score: int) -> str:
-    if score <= 30:
-        return "green"
-    elif score <= 60:
-        return "orange"
-    else:
-        return "red"

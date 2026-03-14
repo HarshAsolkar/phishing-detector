@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Phishing Detector</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 760px; margin: 0 auto; }
+    header { margin-bottom: 2rem; }
+    .badge {
+      display: inline-block;
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+      margin-bottom: 10px;
+    }
+    h1 { font-size: 26px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
+    .subtitle { font-size: 14px; color: #64748b; }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 8px; }
+    textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-family: inherit;
+      padding: 12px;
+      resize: vertical;
+      min-height: 180px;
+      line-height: 1.6;
+    }
+    textarea:focus { outline: none; border-color: #3b82f6; }
+    textarea::placeholder { color: #475569; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .85; }
+    #analyzeBtn { background: #3b82f6; color: #fff; }
+    #clearBtn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+    #sampleBtn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+
+    #result { display: none; }
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 1.25rem;
+    }
+    .score-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .score-safe    { background: #14532d; color: #86efac; }
+    .score-warn    { background: #431407; color: #fdba74; }
+    .score-danger  { background: #450a0a; color: #fca5a5; }
+
+    .verdict-label { font-size: 22px; font-weight: 600; }
+    .verdict-sub   { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    .metric {
+      background: #0f1117;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .metric-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .metric-value { font-size: 14px; font-weight: 500; }
+
+    .flags-list { list-style: none; }
+    .flags-list li {
+      font-size: 13px;
+      color: #94a3b8;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+    .flags-list li:last-child { border-bottom: none; }
+    .flag-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; flex-shrink: 0; margin-top: 6px; }
+
+    .summary-text { font-size: 14px; color: #94a3b8; line-height: 1.7; }
+
+    .loader {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .loader span { animation: pulse 1s infinite; display: inline-block; }
+    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+    .error-box {
+      display: none;
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13px;
+      color: #fca5a5;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Powered by Llama 3.1 — Runs 100% locally</div>
+      <h1>AI Phishing Detector</h1>
+      <p class="subtitle">Paste a suspicious email below. The local LLM will analyze it and return a threat report.</p>
+    </header>
+
+    <div class="card">
+      <label for="emailInput">Email content (headers + body)</label>
+      <textarea id="emailInput" placeholder="Paste the full email here including From:, Subject:, and body text..."></textarea>
+      <div class="btn-row">
+        <button id="analyzeBtn" onclick="analyze()">Analyze Email</button>
+        <button id="sampleBtn" onclick="loadSample()">Load sample phishing email</button>
+        <button id="clearBtn" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+
+    <div class="loader" id="loader">
+      <span>Analyzing with Llama 3.1... this takes 10–20 seconds</span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div id="result">
+      <div class="card">
+        <div class="score-row">
+          <div class="score-circle" id="scoreCircle"></div>
+          <div>
+            <div class="verdict-label" id="verdictLabel"></div>
+            <div class="verdict-sub">Phishing confidence score: <span id="scoreText"></span>/100</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1rem">
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px;">Attack type</div>
+          <div id="phishingType" style="display:inline-block;font-size:13px;font-weight:500;padding:5px 14px;border-radius:20px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;"></div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">Urgency language</div>
+            <div class="metric-value" id="urgency"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Suspicious links</div>
+            <div class="metric-value" id="links"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Sender spoofing risk</div>
+            <div class="metric-value" id="spoofing"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Red flags detected</div>
+        <ul class="flags-list" id="flagsList"></ul>
+      </div>
+
+      <div class="card" id="triggeredCard">
+        <div class="section-title">Triggered sentences</div>
+        <div id="triggeredList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <div class="card" id="urlCard">
+        <div class="section-title">URL scan — VirusTotal</div>
+        <div id="urlList" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Analyst summary</div>
+        <p class="summary-text" id="summaryText"></p>
+      </div>
+
+      <div style="margin-bottom:2rem;">
+        <button id="pdfBtn" onclick="exportPDF()" style="background:#10b981;color:#fff;padding:12px 24px;font-size:14px;border-radius:8px;border:none;cursor:pointer;width:100%;">
+          Download Incident Report (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    let lastResult = null;    const SAMPLE = `From: security-alert@paypa1-secure.com
+To: you@email.com
+Subject: URGENT: Your account has been limited - Verify now
+
+Dear Valued Customer,
+
+We have detected unusual activity on your PayPal account. Your account has been temporarily limited.
+
+To restore full access, you MUST verify your information within 24 hours or your account will be permanently suspended.
+
+Click here to verify: http://paypa1-secure-login.xyz/verify?ref=293847
+
+You will need to provide:
+- Full name
+- Date of birth
+- Credit card number and CVV
+- Social Security Number
+
+Failure to comply will result in permanent account closure.
+
+PayPal Security Team`;
+
+    function loadSample() {
+      document.getElementById("emailInput").value = SAMPLE;
+    }
+
+    function clearAll() {
+      document.getElementById("emailInput").value = "";
+      document.getElementById("result").style.display = "none";
+      document.getElementById("errorBox").style.display = "none";
+    }
+
+    async function analyze() {
+      const email = document.getElementById("emailInput").value.trim();
+      if (!email) { alert("Please paste an email first."); return; }
+
+      document.getElementById("result").style.display = "none";
+      document.getElementById("errorBox").style.display = "none";
+      document.getElementById("loader").style.display = "block";
+
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        const json = await res.json();
+        document.getElementById("loader").style.display = "none";
+
+        if (!json.success) {
+          showError(json.error);
+          return;
+        }
+        renderResult(json.data);
+        lastResult = json.data;
+      } catch(e) {
+        document.getElementById("loader").style.display = "none";
+        showError("Could not reach the Flask server. Run: python app.py");
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById("errorBox");
+      el.textContent = "Error: " + msg;
+      el.style.display = "block";
+    }
+
+    function renderResult(d) {
+      const score = d.phishing_score;
+      const circle = document.getElementById("scoreCircle");
+      circle.textContent = score;
+      circle.className = "score-circle " +
+        (score <= 30 ? "score-safe" : score <= 60 ? "score-warn" : "score-danger");
+
+      document.getElementById("verdictLabel").textContent = d.verdict;
+      document.getElementById("scoreText").textContent = score;
+
+      // Phishing type badge
+      const typeEl = document.getElementById("phishingType");
+      typeEl.textContent = d.phishing_type || "Unknown";
+      const typeColors = {
+        "Credential Harvesting": "#fca5a5",
+        "CEO/BEC Fraud": "#fdba74",
+        "Invoice Scam": "#fdba74",
+        "Delivery Notification Scam": "#fdba74",
+        "Lottery/Prize Scam": "#fca5a5",
+        "Tech Support Scam": "#fca5a5",
+        "Generic Spam": "#94a3b8",
+        "Not Phishing": "#86efac"
+      };
+      typeEl.style.color = typeColors[d.phishing_type] || "#94a3b8";
+
+      document.getElementById("urgency").textContent = d.urgency_language ? "Detected" : "Not detected";
+      document.getElementById("urgency").style.color = d.urgency_language ? "#fca5a5" : "#86efac";
+
+      document.getElementById("links").textContent = d.suspicious_links ? "Detected" : "Not detected";
+      document.getElementById("links").style.color = d.suspicious_links ? "#fca5a5" : "#86efac";
+
+      const spoofEl = document.getElementById("spoofing");
+      spoofEl.textContent = d.sender_spoofing_risk;
+      spoofEl.style.color = d.sender_spoofing_risk === "High" ? "#fca5a5" :
+                            d.sender_spoofing_risk === "Medium" ? "#fdba74" : "#86efac";
+
+      const list = document.getElementById("flagsList");
+      list.innerHTML = "";
+      if (d.red_flags && d.red_flags.length > 0) {
+        d.red_flags.forEach(flag => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span class="flag-dot"></span>${flag}`;
+          list.appendChild(li);
+        });
+      } else {
+        list.innerHTML = "<li>No red flags detected.</li>";
+      }
+
+      document.getElementById("summaryText").textContent = d.summary;
+
+      // Triggered sentences
+      const triggeredList = document.getElementById("triggeredList");
+      const triggeredCard = document.getElementById("triggeredCard");
+      triggeredList.innerHTML = "";
+      if (d.triggered_sentences && d.triggered_sentences.length > 0) {
+        d.triggered_sentences.forEach(sentence => {
+          const div = document.createElement("div");
+          div.style.cssText = "background:#1e293b;border-left:3px solid #ef4444;border-radius:4px;padding:8px 12px;font-size:13px;color:#94a3b8;font-style:italic;line-height:1.5;";
+          div.textContent = `"${sentence}"`;
+          triggeredList.appendChild(div);
+        });
+        triggeredCard.style.display = "block";
+      } else {
+        triggeredCard.style.display = "none";
+      }
+
+      // URL scan results
+      const urlList = document.getElementById("urlList");
+      const urlCard = document.getElementById("urlCard");
+      urlList.innerHTML = "";
+      if (d.url_scan && d.url_scan.length > 0) {
+        d.url_scan.forEach(u => {
+          const div = document.createElement("div");
+          div.style.cssText = "background:#0f1117;border:1px solid #2d3748;border-radius:8px;padding:12px;";
+          const verdictColor = u.verdict === "Malicious" ? "#fca5a5" :
+                               u.verdict === "Suspicious" ? "#fdba74" :
+                               u.verdict === "Clean" ? "#86efac" : "#94a3b8";
+          if (u.error) {
+            div.innerHTML = `<div style="font-size:12px;color:#64748b;word-break:break-all;margin-bottom:4px;">${u.url}</div><div style="font-size:12px;color:#ef4444;">${u.error}</div>`;
+          } else {
+            div.innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div style="font-size:12px;color:#64748b;word-break:break-all;flex:1;margin-right:10px;">${u.url}</div>
+                <div style="font-size:12px;font-weight:500;color:${verdictColor};flex-shrink:0;">${u.verdict}</div>
+              </div>
+              <div style="font-size:12px;color:#475569;">
+                ${u.total_engines > 0 ? `${u.flagged}/${u.total_engines} engines flagged` : u.message || ""}
+                ${u.vt_link ? ` — <a href="${u.vt_link}" style="color:#3b82f6;">View on VirusTotal</a>` : ""}
+              </div>`;
+          }
+          urlList.appendChild(div);
+        });
+        urlCard.style.display = "block";
+      } else {
+        urlCard.style.display = "none";
+      }
+
+      document.getElementById("result").style.display = "block";
+    }
+    function exportPDF() {
+      if (!lastResult) { alert("Please analyze an email first."); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const d = lastResult;
+      const now = new Date().toLocaleString();
+      let y = 20;
+
+      const line = () => { doc.setDrawColor(200); doc.line(15, y, 195, y); y += 6; };
+      const section = (title) => {
+        y += 4;
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.setFont("helvetica", "bold");
+        doc.text(title.toUpperCase(), 15, y);
+        y += 5;
+        line();
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(30);
+      };
+      const row = (label, value, color) => {
+        doc.setFontSize(10);
+        doc.setTextColor(120);
+        doc.text(label, 15, y);
+        if (color) doc.setTextColor(...color);
+        else doc.setTextColor(30);
+        doc.text(String(value), 80, y);
+        doc.setTextColor(30);
+        y += 7;
+      };
+      const wrap = (text, x, maxWidth) => {
+        const lines = doc.splitTextToSize(text, maxWidth);
+        doc.text(lines, x, y);
+        y += lines.length * 6;
+      };
+
+      // Header
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20);
+      doc.text("Phishing Incident Report", 15, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120);
+      doc.text(`Generated: ${now}`, 15, y);
+      y += 4;
+      line();
+      y += 4;
+
+      // Verdict
+      section("Verdict");
+      const scoreColor = d.phishing_score > 60 ? [180, 30, 30] : d.phishing_score > 30 ? [180, 100, 20] : [20, 120, 60];
+      row("Verdict", d.verdict, scoreColor);
+      row("Phishing Score", `${d.phishing_score} / 100`, scoreColor);
+      row("Attack Type", d.phishing_type || "Unknown");
+      y += 2;
+
+      // Indicators
+      section("Indicators");
+      row("Urgency Language", d.urgency_language ? "Detected" : "Not Detected", d.urgency_language ? [180,30,30] : [20,120,60]);
+      row("Suspicious Links", d.suspicious_links ? "Detected" : "Not Detected", d.suspicious_links ? [180,30,30] : [20,120,60]);
+      row("Sender Spoofing Risk", d.sender_spoofing_risk, d.sender_spoofing_risk === "High" ? [180,30,30] : d.sender_spoofing_risk === "Medium" ? [180,100,20] : [20,120,60]);
+      y += 2;
+
+      // Red flags
+      section("Red Flags");
+      if (d.red_flags && d.red_flags.length > 0) {
+        d.red_flags.forEach(flag => {
+          doc.setFontSize(10);
+          doc.setTextColor(30);
+          wrap(`• ${flag}`, 15, 175);
+        });
+      } else {
+        doc.text("No red flags detected.", 15, y); y += 7;
+      }
+      y += 2;
+
+      // Triggered sentences
+      if (d.triggered_sentences && d.triggered_sentences.length > 0) {
+        section("Triggered Sentences");
+        d.triggered_sentences.forEach(s => {
+          doc.setTextColor(80);
+          wrap(`"${s}"`, 15, 175);
+          y += 2;
+        });
+        y += 2;
+      }
+
+      // URL scan
+      if (d.url_scan && d.url_scan.length > 0) {
+        section("URL Scan — VirusTotal");
+        d.url_scan.forEach(u => {
+          doc.setFontSize(9);
+          doc.setTextColor(60);
+          wrap(u.url, 15, 175);
+          if (u.error) {
+            doc.setTextColor(180, 30, 30);
+            doc.text(`Error: ${u.error}`, 15, y); y += 6;
+          } else {
+            const vc = u.verdict === "Malicious" ? [180,30,30] : u.verdict === "Clean" ? [20,120,60] : [180,100,20];
+            doc.setTextColor(...vc);
+            doc.text(`${u.verdict} — ${u.flagged || 0}/${u.total_engines || 0} engines flagged`, 15, y); y += 8;
+          }
+          doc.setTextColor(30);
+        });
+        y += 2;
+      }
+
+      // Summary
+      if (y > 240) { doc.addPage(); y = 20; }
+      section("Analyst Summary");
+      doc.setFontSize(10);
+      doc.setTextColor(50);
+      wrap(d.summary, 15, 175);
+
+      // Footer
+      y = 285;
+      doc.setFontSize(8);
+      doc.setTextColor(160);
+      doc.text("Generated by AI Phishing Detector — Powered by Llama 3.2 + VirusTotal", 15, y);
+
+      doc.save(`phishing_report_${Date.now()}.pdf`);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+From: security-alert@paypa1-secure.com
+To: victim@email.com
+Subject: URGENT: Your account has been limited - Verify now or lose access
+
+Dear Valued Customer,
+
+We have detected unusual login activity on your PayPal account from a new device located in Russia.
+
+Your account has been temporarily LIMITED. You must verify your information within 24 hours or your account will be PERMANENTLY SUSPENDED and all funds frozen.
+
+Click here to verify immediately: http://paypa1-secure-login.xyz/verify?ref=293847
+
+You will be required to confirm:
+- Full legal name
+- Date of birth
+- Credit card number and CVV security code
+- Social Security Number for identity verification
+
+This is your FINAL WARNING. Failure to verify within 24 hours will result in permanent account closure and legal action.
+
+PayPal Security Team
+PayPal Inc.

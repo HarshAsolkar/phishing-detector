@@ -1,6 +1,6 @@
 # AI Phishing Email Detector
 
-🌐 **Live Demo:** https://phishing-detector-production-4409.up.railway.app
+🌐 **Live Demo:** https://phishing-detector-ai.vercel.app
 🐙 **GitHub:** https://github.com/HarshAsolkar/phishing-detector
 
 An AI-powered phishing email detector built as a SOC analyst portfolio project. Paste any suspicious email and get a full threat report in seconds — powered by Llama 3.1 via Groq API and VirusTotal.
@@ -39,7 +39,7 @@ Paste any suspicious email and get an instant structured threat report:
 ## Live Demo
 
 Try it here — no installation needed:
-**https://phishing-detector-production-4409.up.railway.app**
+**https://phishing-detector-ai.vercel.app**
 
 Click **Load sample phishing email** to test immediately.
 
